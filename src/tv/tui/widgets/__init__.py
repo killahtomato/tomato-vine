@@ -51,7 +51,7 @@ class ChatView(RichLog):
         height: 1fr;
         background: $surface;
         padding: 0 1;
-        scrollbar-size: 1;
+        scrollbar-size: 1 1;
     }
     """
 

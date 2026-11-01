@@ -40,12 +40,13 @@ class ServerTree(Tree):
         if host not in self._servers:
             return
         node = self._servers[host]
+        label = str(node.label)
         if status == "connected":
-            node.label = node.label.replace("○ ", "● ").replace("◌ ", "● ")
+            node.label = label.replace("○ ", "● ").replace("◌ ", "● ")
         elif status == "disconnected":
-            node.label = node.label.replace("● ", "○ ").replace("◌ ", "○ ")
+            node.label = label.replace("● ", "○ ").replace("◌ ", "○ ")
         elif status == "connecting...":
-            node.label = node.label.replace("● ", "◌ ").replace("○ ", "◌ ")
+            node.label = label.replace("● ", "◌ ").replace("○ ", "◌ ")
         self.refresh()
 
     def add_channel(self, host: str, channel: str) -> TreeNode:
@@ -91,7 +92,7 @@ class ServerTree(Tree):
         for ch, node in self._channels.items():
             if ch == channel:
                 node.label = f"▸ {ch}"
-            else:
+            elif not str(node.label).startswith("  💬"):
                 node.label = f"  {ch}"
         self.refresh()
 
@@ -99,7 +100,7 @@ class ServerTree(Tree):
         """Mark a channel as having unread messages."""
         if channel in self._channels:
             node = self._channels[channel]
-            label = str(node.label)
-            if "*" not in label:
+            label = str(node.label).rstrip(" *")
+            if "*" not in str(node.label):
                 node.label = f"{label} *"
             self.refresh()
