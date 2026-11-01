@@ -11,6 +11,7 @@ import sys
 from . import config
 from .irc.connection import IRCConnection
 from .irc.parser import parse_line
+from .tui.app import VineApp
 
 log = logging.getLogger("tv")
 
@@ -126,8 +127,29 @@ def cmd_config(args: argparse.Namespace) -> int:
 
 
 def cmd_tui(args: argparse.Namespace) -> int:
-    """Launch the interactive TUI (placeholder for Phase 2)."""
-    print("TUI mode coming in Phase 2. Use 'tv connect' for now.")
+    """Launch the interactive TUI."""
+    if not config.CONFIG_FILE.exists():
+        print("No config. Run 'tv config init' first.")
+        return 1
+
+    cfg = config.AppConfig.model_validate_json(config.CONFIG_FILE.read_text())
+    server = None
+    if args.server:
+        for s in cfg.servers:
+            if s.host == args.server:
+                server = s
+                break
+        if not server:
+            print(f"Server '{args.server}' not found in config.")
+            return 1
+    elif cfg.servers:
+        server = cfg.servers[0]
+    else:
+        print("No servers configured.")
+        return 1
+
+    app = VineApp(server_config=server)
+    app.run()
     return 0
 
 
@@ -151,7 +173,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="config subcommand",
     )
 
-    sub.add_parser("tui", help="launch the interactive TUI")
+    tui = sub.add_parser("tui", help="launch the interactive TUI")
+    tui.add_argument("--server", "-s", help="server hostname (default: first in config)")
 
     return parser
 
