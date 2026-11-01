@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import base64
+
 from .parser import build_message
+
+
+def build_sasl_plain_blob(username: str, password: str) -> str:
+    """Build a SASL PLAIN AUTHENTICATE payload."""
+    auth_string = f"{username}\x00{username}\x00{password}"
+    return base64.b64encode(auth_string.encode()).decode()
 
 
 def nick(nickname: str) -> str:
@@ -110,3 +118,33 @@ def ctcp(target: str, command: str, args: str | None = None) -> str:
     if args:
         payload = f"{payload} {args}"
     return privmsg(target, f"\x01{payload}\x01")
+
+
+def who(target: str) -> str:
+    return build_message("WHO", params=[target])
+
+
+def names(channel: str) -> str:
+    return build_message("NAMES", params=[channel])
+
+
+def whois(target: str, server: str | None = None) -> str:
+    if server:
+        return build_message("WHOIS", params=[server, target])
+    return build_message("WHOIS", params=[target])
+
+
+def respond_ctcp_version(target: str, version: str) -> str:
+    return notice(target, f"\x01VERSION {version}\x01")
+
+
+def respond_ctcp_ping(target: str, token: str) -> str:
+    return notice(target, f"\x01PING {token}\x01")
+
+
+def respond_ctcp_time(target: str, time_str: str) -> str:
+    return notice(target, f"\x01TIME {time_str}\x01")
+
+
+def respond_ctcp_finger(target: str, finger: str) -> str:
+    return notice(target, f"\x01FINGER {finger}\x01")

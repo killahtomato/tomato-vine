@@ -21,7 +21,7 @@ _LINE_RE = re.compile(
     r"^(?P<tags>@[^ ]+ )?"
     r"(?P<prefix>:[^ ]+ )?"
     r"(?P<command>\S+)"
-    r"(?P<params>( [^:]\S+)*)"
+    r"(?P<params>( [^:][^ ]*)*)"
     r"(?P<trailing> :.+)?$"
 )
 
