@@ -2,8 +2,6 @@
 
 A modern IRC TUI client written in Python.
 
-> Phase 1: protocol core — parser, connection, config, CLI skeleton.
-
 ## Requirements
 
 - Python 3.11+
@@ -24,19 +22,59 @@ ln -sf "$PWD/tv" ~/.local/bin/tv
 tv config init                  # create default config at ~/.config/tomato-vine/
 tv config show                  # display current config
 tv status                       # show configured servers
-tv connect                      # connect to first server in REPL mode
-tv tui                          # launch the interactive TUI (Phase 2)
+tv tui                          # launch the interactive TUI
 ```
 
-## Commands
+## CLI Commands
 
 | Command | Description |
 |---|---|
 | `tv config init` | Create a default configuration file |
 | `tv config show` | Display current configuration as JSON |
 | `tv status` | Show configured servers and connection info |
-| `tv connect` | Connect to a server in simple REPL mode |
-| `tv tui` | Launch the interactive TUI (coming in Phase 2) |
+| `tv connect [-s host]` | Connect in simple REPL mode |
+| `tv tui [-s host]` | Launch the interactive TUI |
+| `tv --debug tui` | Launch TUI with debug logging |
+
+## TUI Keybindings
+
+| Key | Action |
+|-----|--------|
+| `q` | Quit |
+| `Tab` | Cycle focus (input ↔ chat ↔ sidebar) |
+| `c` | Focus channel tree |
+| `r` | Refresh display |
+| `Enter` | Send message |
+| `↑` / `↓` | Input history |
+| `Esc` | Clear input / unfocus |
+
+## TUI Commands
+
+| Command | Action |
+|---------|--------|
+| `/join #channel` | Join a channel |
+| `/part [#channel] [reason]` | Leave a channel |
+| `/msg target text` | Send a private message |
+| `/me text` | Send a CTCP action |
+| `/topic [text]` | View or set channel topic |
+| `/kick nick [reason]` | Kick a user |
+| `/mode +x [params]` | Set channel mode |
+| `/who [target]` | Query WHO |
+| `/away [reason]` | Set/unset away |
+| `/nick newnick` | Change nickname |
+| `/raw command` | Send raw IRC line |
+| `/quit [reason]` | Disconnect and quit |
+
+## Features
+
+- **SASL PLAIN authentication**
+- **IRCv3 capabilities**: multi-prefix, account-notify, away-notify, extended-join, message-tags
+- **Auto-reconnect** with exponential backoff
+- **TreeView sidebar** with channel navigation and DM tracking
+- **IRC color code rendering** (mIRC colors → Rich markup)
+- **CTCP auto-replies**: VERSION, PING, TIME, FINGER
+- **WHO/NAMES** — automatic nick list population
+- **Channel modes**: +o, +v, +b, +k, +l tracking
 
 ## Architecture
 
@@ -46,10 +84,15 @@ src/tv/
 ├── cli.py            # Argparse entry point
 ├── irc/
 │   ├── parser.py     # IRC message parser (RFC 1459 + IRCv3 tags)
-│   ├── commands.py   # IRC command builders (PRIVMSG, JOIN, etc.)
-│   ├── connection.py # Async TCP/TLS with auto-reconnect
-│   └── capabilities.py # IRCv3 capability negotiation (Phase 2)
-└── tui/              # Textual-based TUI (Phase 2)
+│   ├── commands.py   # IRC command builders (PRIVMSG, JOIN, SASL, CTCP)
+│   ├── connection.py # Async TCP/TLS + auto-reconnect + SASL + CAP
+│   ├── capabilities.py # IRCv3 capability negotiation
+│   └── colors.py     # IRC color code → Rich markup rendering
+└── tui/
+    ├── app.py        # Main Textual app — event handling, commands
+    └── widgets/
+        ├── __init__.py # StatusBar, ChatView, NickList, VineInput
+        └── sidebar.py  # ServerTree — hierarchical channel navigation
 ```
 
 ## License

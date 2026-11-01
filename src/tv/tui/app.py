@@ -13,7 +13,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Input
 
-from .widgets import ChatView, NickList, StatusBar, VineInput
+from .widgets import ChatView, NickList, ServerTree, StatusBar, VineInput
 from ..config import ServerConfig
 from ..irc.capabilities import DEFAULT_CAPS
 from ..irc.connection import IRCConnection
@@ -55,9 +55,13 @@ class VineApp(App):
     }
 
     #sidebar {
-        width: 20;
+        width: 24;
         height: 1fr;
         layout: vertical;
+    }
+
+    #nick-area {
+        height: 1fr;
     }
 
     #input-area {
@@ -72,6 +76,7 @@ class VineApp(App):
         Binding("escape", "cancel", "Cancel", show=False),
         Binding("up", "history_up", "Hist ↑", show=False),
         Binding("down", "history_down", "Hist ↓", show=False),
+        Binding("c", "show_tree", "Channels", show=True),
     ]
 
     def __init__(
@@ -94,6 +99,7 @@ class VineApp(App):
             with Vertical(id="chat-column"):
                 yield ChatView()
             with Vertical(id="sidebar"):
+                yield ServerTree()
                 yield NickList()
         with Horizontal(id="input-area"):
             yield VineInput()
@@ -102,12 +108,16 @@ class VineApp(App):
         nick = self.server_config.nickname
         status_bar = self.query_one(StatusBar)
         status_bar.update_status(
-            server=f"{self.server_config.host}:{self.server_config.port}",
+            server=self.server_config.host,
             nick=nick,
             status="connecting...",
         )
         chat = self.query_one(ChatView)
         chat.add_system(f"Connecting to {self.server_config.host}...")
+
+        tree = self.query_one(ServerTree)
+        tree.add_server(self.server_config.host, nick)
+        tree.set_server_status(self.server_config.host, "connecting...")
 
         self._conn = IRCConnection(
             host=self.server_config.host,
@@ -191,6 +201,9 @@ class VineApp(App):
                     if channel not in self._channels:
                         self._channels[channel] = {"nicks": set(), "topic": ""}
                     self._current_channel = channel
+                    tree = self.query_one(ServerTree)
+                    tree.add_channel(self.server_config.host, channel)
+                    tree.mark_active(channel)
                     chat.add_system(f"Joined {channel}")
                     if self._conn:
                         await self._conn.send_raw(who(channel))
@@ -208,9 +221,14 @@ class VineApp(App):
                 is_self = msg.nick == self.server_config.nickname
                 if is_self:
                     self._channels.pop(channel, None)
+                    tree = self.query_one(ServerTree)
+                    tree.remove_channel(self.server_config.host, channel)
                     chat.add_system(f"Left {channel}")
                     if self._channels:
                         self._current_channel = next(iter(self._channels))
+                        tree.mark_active(self._current_channel)
+                    else:
+                        tree.mark_active(None)
                 else:
                     if channel in self._channels:
                         self._channels[channel]["nicks"].discard(msg.nick)
@@ -228,9 +246,14 @@ class VineApp(App):
             is_self = target == self.server_config.nickname
             if is_self:
                 self._channels.pop(channel, None)
+                tree = self.query_one(ServerTree)
+                tree.remove_channel(self.server_config.host, channel)
                 chat.add_system(f"You were kicked from {channel}: {msg.trailing}")
                 if self._channels:
                     self._current_channel = next(iter(self._channels))
+                    tree.mark_active(self._current_channel)
+                else:
+                    tree.mark_active(None)
             else:
                 if channel in self._channels:
                     self._channels[channel]["nicks"].discard(target)
@@ -340,6 +363,10 @@ class VineApp(App):
             outgoing = msg.nick == self.server_config.nickname
             chat.add_message(msg.nick, msg.trailing, outgoing=outgoing)
         else:
+            tree = self.query_one(ServerTree)
+            tree.add_dm(self.server_config.host, msg.nick)
+            if target != self._current_channel:
+                tree.mark_unread(msg.nick)
             chat.add_system(f"[DM from {msg.nick}] {msg.trailing}")
 
     async def _handle_notice(self, msg) -> None:
@@ -416,18 +443,50 @@ class VineApp(App):
         nick_list.update_nicks(nicks)
 
     async def _on_registered(self) -> None:
+        tree = self.query_one(ServerTree)
+        tree.set_server_status(self.server_config.host, "connected")
+        status_bar = self.query_one(StatusBar)
+        status_bar.update_status(status="connected")
         chat = self.query_one(ChatView)
         chat.add_system("Registration complete.")
 
     async def _on_disconnected(self) -> None:
+        tree = self.query_one(ServerTree)
+        tree.set_server_status(self.server_config.host, "disconnected")
         status_bar = self.query_one(StatusBar)
-        status_bar.update_status(
-            server=f"{self.server_config.host}:{self.server_config.port}",
-            nick=self.server_config.nickname,
-            status="disconnected",
-        )
+        status_bar.update_status(status="disconnected")
         chat = self.query_one(ChatView)
         chat.add_system("Disconnected. Reconnecting...")
+
+    async def on_tree_node_selected(self, event: ServerTree.NodeSelected) -> None:
+        """Handle channel/DM selection from the tree."""
+        node = event.node
+        label = str(node.label).strip()
+
+        # Skip server nodes (they start with ●)
+        if label.startswith("●"):
+            return
+
+        # DM nodes
+        if label.startswith("💬 "):
+            nick = label[2:].strip()
+            self._current_channel = nick
+            tree = self.query_one(ServerTree)
+            tree.mark_active(nick)
+            chat = self.query_one(ChatView)
+            chat.add_system(f"DM with {nick}")
+            return
+
+        # Channel nodes (strip prefix markers)
+        channel = label.lstrip("▸ ").strip()
+        if channel in self._channels:
+            self._current_channel = channel
+            tree = self.query_one(ServerTree)
+            tree.mark_active(channel)
+            status_bar = self.query_one(StatusBar)
+            status_bar.update_status(channel=channel)
+            chat = self.query_one(ChatView)
+            chat.add_system(f"Switched to {channel}")
 
     @on(Input.Submitted, "#vine-input")
     async def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -546,6 +605,10 @@ class VineApp(App):
     def action_history_down(self) -> None:
         if self.query_one(VineInput).has_focus:
             self.query_one(VineInput).history_down()
+
+    def action_show_tree(self) -> None:
+        """Focus the server tree sidebar."""
+        self.query_one(ServerTree).focus()
 
     def action_quit(self) -> None:
         if self._conn:

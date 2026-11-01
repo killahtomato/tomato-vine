@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from textual.widgets import Static, Input, ListView, ListItem, Label, RichLog
 
+from ...irc.colors import irc_to_rich
+from .sidebar import ServerTree
+
 
 class StatusBar(Static):
     """Top status bar — server, channel, nick, connection state."""
@@ -56,13 +59,15 @@ class ChatView(RichLog):
         super().__init__(id="chat-view", markup=True, auto_scroll=True)
 
     def add_message(self, nick: str, text: str, outgoing: bool = False) -> None:
+        rendered = irc_to_rich(text)
         if outgoing:
-            self.write(f"[dim]> {nick}:[/dim] {text}")
+            self.write(f"[dim]> {nick}:[/dim] {rendered}")
         else:
-            self.write(f"[bold cyan]<{nick}>[/bold cyan] {text}")
+            self.write(f"[bold cyan]<{nick}>[/bold cyan] {rendered}")
 
     def add_system(self, text: str) -> None:
-        self.write(f"[dim italic]* {text}[/dim italic]")
+        rendered = irc_to_rich(text)
+        self.write(f"[dim italic]* {rendered}[/dim italic]")
 
     def add_join(self, nick: str, channel: str) -> None:
         self.write(f"[dim]→ {nick} joined {channel}[/dim]")
@@ -71,7 +76,8 @@ class ChatView(RichLog):
         self.write(f"[dim]← {nick} left {channel}[/dim]")
 
     def add_action(self, nick: str, text: str) -> None:
-        self.write(f"[italic magenta]* {nick} {text}[/italic magenta]")
+        rendered = irc_to_rich(text)
+        self.write(f"[italic magenta]* {nick} {rendered}[/italic magenta]")
 
 
 class NickList(ListView):
