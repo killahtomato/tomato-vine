@@ -21,6 +21,7 @@ DEFAULT_ACTIONS = [
     PaletteAction("Open", "/open"),
     PaletteAction("Part", "/part"),
     PaletteAction("Away", "/away"),
+    PaletteAction("Theme", "/theme next"),
     PaletteAction("Quit", "/quit"),
 ]
 

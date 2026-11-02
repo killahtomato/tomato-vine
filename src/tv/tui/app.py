@@ -35,6 +35,8 @@ log = logging.getLogger(__name__)
 
 VERSION_STRING = "tomato-vine 0.1.0"
 
+from .themes import register_all_themes
+
 
 class VineApp(App):
     """Tomato-Vine IRC TUI — multi-server."""
@@ -100,6 +102,8 @@ class VineApp(App):
         self._list_loading: dict[str, bool] = {}
         self._active_server: str | None = None
         self._active_channel: str = ""
+        self._current_theme: str = app_config.theme
+        self._theme_names: list[str] = []
 
         for sc in app_config.servers:
             self._server_configs[sc.host] = sc
@@ -127,6 +131,8 @@ class VineApp(App):
 
         palette = self.query_one(CommandPalette)
         palette.set_callback(self._on_palette_action)
+
+        self._theme_names = register_all_themes(self)
 
         for host, sc in self._server_configs.items():
             if sc.auto_connect:
@@ -656,6 +662,28 @@ class VineApp(App):
         await self._handle_command(command)
         input_widget.value = ""
 
+    def apply_theme(self, name: str) -> None:
+        """Apply a color theme to the TUI."""
+        self._current_theme = name
+        try:
+            self.theme = name
+        except Exception:
+            pass
+
+    def _cycle_theme(self, direction: int) -> None:
+        """Cycle to next (1) or previous (-1) theme."""
+        if not self._theme_names:
+            return
+        try:
+            idx = self._theme_names.index(self._current_theme)
+        except ValueError:
+            idx = 0
+        idx = (idx + direction) % len(self._theme_names)
+        theme_name = self._theme_names[idx]
+        self.apply_theme(theme_name)
+        chat = self.query_one(ChatView)
+        chat.add_system(f"Theme: {theme_name}")
+
     @on(Input.Submitted, "#vine-input")
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         text = event.value.strip()
@@ -823,6 +851,33 @@ class VineApp(App):
             else:
                 chat.add_system("No links found in recent messages")
 
+        elif cmd == "/theme":
+            if not rest.strip():
+                themes = ", ".join(self._theme_names[:10])
+                more = f" (+{len(self._theme_names) - 10} more)" if len(self._theme_names) > 10 else ""
+                chat.add_system(f"Themes: {themes}{more}")
+                chat.add_system(f"Current: {self._current_theme}")
+            elif rest.strip() == "next":
+                self._cycle_theme(1)
+            elif rest.strip() == "prev":
+                self._cycle_theme(-1)
+            elif rest.strip().startswith("install "):
+                url = rest.strip()[8:].strip()
+                from .themes import install_theme_from_git
+                name = install_theme_from_git(url)
+                if name:
+                    chat.add_system(f"Installed theme: {name}")
+                    self._theme_names = register_all_themes(self)
+                else:
+                    chat.add_system("Failed to install theme")
+            elif rest.strip() in self._theme_names:
+                theme_name = rest.strip()
+                self.apply_theme(theme_name)
+                self.app_config.theme = theme_name
+                chat.add_system(f"Theme: {theme_name}")
+            else:
+                chat.add_system(f"Unknown theme: {rest.strip()}")
+
         elif cmd == "/server":
             await self._handle_server_command(rest)
 
@@ -851,6 +906,7 @@ class VineApp(App):
             "raw": "Send raw IRC. Usage: /raw PRIVMSG #chan :hello",
             "copy": "Copy last 50 lines to clipboard",
             "open": "Open URLs from recent messages in browser",
+            "theme": "Switch theme. Usage: /theme [name|next|prev|install <url>]",
             "help": "Show this help or details for a command",
         }
         return help_topics.get(topic)

@@ -53,6 +53,7 @@ class AppConfig(BaseModel):
     reconnect_delay: Annotated[int, Field(ge=1, le=300)] = 5
     reconnect_max_attempts: Annotated[int, Field(ge=0, le=100)] = 10
     send_throttle_ms: Annotated[int, Field(ge=0, le=5000)] = 200
+    theme: str = "dark"
     encoding: str = "utf-8"
 
     @field_validator("log_level")
