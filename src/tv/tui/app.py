@@ -151,9 +151,7 @@ class VineApp(App):
             sasl_username=sc.sasl.username if sc.sasl else None,
             sasl_password=sc.sasl.password if sc.sasl else None,
             capabilities=DEFAULT_CAPS,
-            reconnect=True,
-            reconnect_delay=5.0,
-            reconnect_max_attempts=10,
+            reconnect=False,
         )
 
         conn.on_message(self._make_line_handler(host))
