@@ -50,6 +50,7 @@ class MessageRow(Horizontal):
         padding: 0 1;
     }
     MessageRow .message {
+        width: 100%;
         link-color: $accent;
         link-style: underline;
     }

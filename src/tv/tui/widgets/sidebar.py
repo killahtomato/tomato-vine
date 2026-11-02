@@ -12,7 +12,7 @@ class ServerTree(Tree):
     DEFAULT_CSS = """
     ServerTree {
         height: 1fr;
-        width: 40;
+        width: 100%;
         background: $panel;
         padding: 0 1;
     }
