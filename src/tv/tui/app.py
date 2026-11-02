@@ -595,6 +595,8 @@ class VineApp(App):
 
     async def _on_registered(self, host: str) -> None:
         error_log().info("Connected to %s as %s", host, self._server_configs[host].nickname)
+        if self._active_server is None:
+            self._active_server = host
         try:
             tree = self.query_one(ServerTree)
             tree.set_server_status(host, "connected")
