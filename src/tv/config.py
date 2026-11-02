@@ -25,6 +25,7 @@ class ServerConfig(BaseModel):
     realname: str | None = None
     password: str | None = None
     sasl: SASLConfig | None = None
+    nick_color: str | None = None
     channels: list[str] = Field(default_factory=list)
     auto_connect: bool = False
     ipv6: bool = False

@@ -57,27 +57,59 @@ class ChatView(RichLog):
 
     def __init__(self) -> None:
         super().__init__(id="chat-view", markup=True, auto_scroll=True)
+        self._buffer: list[str] = []
+        self._nick_color: str | None = None
+        self._my_nick: str | None = None
+
+    def set_nick_highlight(self, nick: str, color: str | None) -> None:
+        self._my_nick = nick
+        self._nick_color = color
+
+    def _highlight_nick(self, text: str) -> str:
+        if not self._nick_color or not self._my_nick:
+            return text
+        import re
+        pattern = re.compile(r'\b' + re.escape(self._my_nick) + r'\b')
+        return pattern.sub(f'[{self._nick_color}]\\g<0>[/{self._nick_color}]', text)
+
+    def _add_line(self, text: str) -> None:
+        from ...irc.colors import strip_irc_formatting
+        self._buffer.append(strip_irc_formatting(text))
+        if len(self._buffer) > 500:
+            self._buffer = self._buffer[-500:]
+
+    def copy_visible(self) -> str:
+        """Return the last 50 plain-text messages for copying."""
+        lines = self._buffer[-50:]
+        return "\n".join(lines)
 
     def add_message(self, nick: str, text: str, outgoing: bool = False) -> None:
         rendered = irc_to_rich(text)
+        nick_display = self._highlight_nick(nick)
         if outgoing:
-            self.write(f"[dim]> {nick}:[/dim] {rendered}")
+            self.write(f"[dim]> {nick_display}:[/dim] {rendered}")
+            self._add_line(f"> {nick}: {text}")
         else:
-            self.write(f"[bold cyan]<{nick}>[/bold cyan] {rendered}")
+            self.write(f"[bold cyan]<{nick_display}>[/bold cyan] {rendered}")
+            self._add_line(f"<{nick}> {text}")
 
     def add_system(self, text: str) -> None:
         rendered = irc_to_rich(text)
         self.write(f"[dim italic]* {rendered}[/dim italic]")
+        self._add_line(f"* {text}")
 
     def add_join(self, nick: str, channel: str) -> None:
         self.write(f"[dim]→ {nick} joined {channel}[/dim]")
+        self._add_line(f"→ {nick} joined {channel}")
 
     def add_part(self, nick: str, channel: str) -> None:
         self.write(f"[dim]← {nick} left {channel}[/dim]")
+        self._add_line(f"← {nick} left {channel}")
 
     def add_action(self, nick: str, text: str) -> None:
         rendered = irc_to_rich(text)
         self.write(f"[italic magenta]* {nick} {rendered}[/italic magenta]")
+        self._add_line(f"* {nick} {text}")
 
 
 class NickList(ListView):

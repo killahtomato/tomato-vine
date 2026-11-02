@@ -576,6 +576,8 @@ class VineApp(App):
             sc = self._server_configs[host]
             status_bar.update_status(server=host, nick=sc.nickname, status="connected")
         chat = self.query_one(ChatView)
+        sc = self._server_configs[host]
+        chat.set_nick_highlight(sc.nickname, sc.nick_color)
         chat.add_system(f"[{host}] Registration complete.")
 
     async def _on_disconnected(self, host: str) -> None:
