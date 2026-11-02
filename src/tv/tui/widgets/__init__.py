@@ -77,9 +77,15 @@ class ChatView(RichLog):
 
     def _add_line(self, text: str) -> None:
         from ...irc.colors import strip_irc_formatting
-        self._buffer.append(strip_irc_formatting(text))
+        plain = strip_irc_formatting(text)
+        self._buffer.append(plain)
         if len(self._buffer) > 500:
             self._buffer = self._buffer[-500:]
+        try:
+            from ...log import chat_log
+            chat_log().info(plain)
+        except Exception:
+            pass
 
     def copy_visible(self) -> str:
         """Return the last 50 plain-text messages for copying."""

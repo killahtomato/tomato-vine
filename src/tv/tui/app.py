@@ -14,6 +14,7 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Input
 
 from .widgets import ChatView, CommandPalette, NickList, ServerTree, StatusBar, VineInput
+from ..log import error_log, setup_logging
 from ..config import AppConfig, ServerConfig
 from ..irc.capabilities import DEFAULT_CAPS
 from ..irc.connection import IRCConnection
@@ -122,6 +123,7 @@ class VineApp(App):
             yield VineInput()
 
     async def on_mount(self) -> None:
+        setup_logging()
         status_bar = self.query_one(StatusBar)
         status_bar.update_status(nick="—", status="idle")
 
@@ -145,6 +147,8 @@ class VineApp(App):
         sc = self._server_configs.get(host)
         if not sc:
             return
+
+        error_log().info("Connecting to %s:%d as %s", host, sc.port, sc.nickname)
 
         conn = IRCConnection(
             host=sc.host,
@@ -310,6 +314,8 @@ class VineApp(App):
 
         if msg.is_numeric:
             chat.add_system(f"[{host}] [{msg.command}] {msg.trailing}")
+            if msg.command in ("433", "432", "904", "905", "481", "482"):
+                error_log().warning("[%s] %s %s", host, msg.command, msg.trailing)
 
     async def _handle_list_entry(self, host: str, msg) -> None:
         if len(msg.params) < 3:
@@ -583,6 +589,7 @@ class VineApp(App):
         nick_list.update_nicks(nicks)
 
     async def _on_registered(self, host: str) -> None:
+        error_log().info("Connected to %s as %s", host, self._server_configs[host].nickname)
         tree = self.query_one(ServerTree)
         tree.set_server_status(host, "connected")
         status_bar = self.query_one(StatusBar)
@@ -594,6 +601,7 @@ class VineApp(App):
         chat.add_system(f"[{host}] Registration complete.")
 
     async def _on_disconnected(self, host: str) -> None:
+        error_log().warning("Disconnected from %s", host)
         tree = self.query_one(ServerTree)
         tree.set_server_status(host, "disconnected")
         if host == self._active_server:
