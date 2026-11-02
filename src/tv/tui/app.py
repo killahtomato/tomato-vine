@@ -135,8 +135,7 @@ class VineApp(App):
         palette = self.query_one(CommandPalette)
         palette.set_callback(self._on_palette_action)
 
-        chat = self.query_one(ChatView)
-        chat.set_url_click_handler(self._open_url)
+        self.query_one(ChatView)
 
         self._theme_names = register_all_themes(self)
 
@@ -997,14 +996,15 @@ class VineApp(App):
         if self.query_one(VineInput).has_focus:
             self.query_one(VineInput).history_down()
 
-    def _open_url(self, url: str) -> None:
-        """Open a URL in the default browser."""
+    def action_open_url(self, url: str) -> None:
+        """Open a URL in the default browser. Called from [@click] links."""
         import subprocess
-        chat = self.query_one(ChatView)
         try:
-            subprocess.Popen(["xdg-open", url])
+            subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            chat = self.query_one(ChatView)
             chat.add_system(f"Opened: {url[:80]}")
         except FileNotFoundError:
+            chat = self.query_one(ChatView)
             chat.add_system("xdg-open not found")
 
     def action_open_last_url(self) -> None:
@@ -1012,7 +1012,7 @@ class VineApp(App):
         chat = self.query_one(ChatView)
         urls = chat.last_urls(1)
         if urls:
-            self._open_url(urls[0])
+            self.action_open_url(urls[0])
         else:
             chat.add_system("No URLs found")
 
