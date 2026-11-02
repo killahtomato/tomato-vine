@@ -61,8 +61,19 @@ class ChatView(RichLog):
         super().__init__(id="chat-view", markup=True, auto_scroll=True)
         self._buffer: list[str] = []
         self._url_buffer: list[str] = []
+        self._urls_by_line: dict[int, list[str]] = {}
+        self._line_count = 0
         self._nick_color: str | None = None
         self._my_nick: str | None = None
+        self._on_url_click = None
+
+    def set_url_click_handler(self, fn) -> None:
+        self._on_url_click = fn
+
+    def on_click(self, event) -> None:
+        """Click anywhere in chat to open the most recent URL."""
+        if self._on_url_click and self._url_buffer:
+            self._on_url_click(self._url_buffer[-1])
 
     def set_nick_highlight(self, nick: str, color: str | None) -> None:
         self._my_nick = nick
@@ -108,6 +119,13 @@ class ChatView(RichLog):
             result = result.replace(url, display)
         return result
 
+    def _register_line_urls(self, line_text: str) -> None:
+        """Register URLs found in a line for click handling."""
+        urls = extract_urls(strip_irc_formatting(line_text))
+        if urls:
+            self._urls_by_line[self._line_count] = urls
+        self._line_count += 1
+
     def last_urls(self, count: int = 5) -> list[str]:
         """Return the last N image URLs seen."""
         return self._url_buffer[-count:]
@@ -118,14 +136,17 @@ class ChatView(RichLog):
         if outgoing:
             self.write(f"[dim]> {nick_display}:[/dim] {rendered}")
             self._add_line(f"> {nick}: {strip_irc_formatting(text)}")
+            self._register_line_urls(f"> {nick}: {text}")
         else:
             self.write(f"[bold cyan]<{nick_display}>[/bold cyan] {rendered}")
             self._add_line(f"<{nick}> {strip_irc_formatting(text)}")
+            self._register_line_urls(f"<{nick}> {text}")
 
     def add_system(self, text: str) -> None:
         rendered = self._render_links(irc_to_rich(text))
         self.write(f"[dim italic]* {rendered}[/dim italic]")
         self._add_line(f"* {strip_irc_formatting(text)}")
+        self._register_line_urls(text)
 
     def add_join(self, nick: str, channel: str) -> None:
         self.write(f"[dim]→ {nick} joined {channel}[/dim]")

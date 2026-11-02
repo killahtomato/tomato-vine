@@ -85,6 +85,7 @@ class VineApp(App):
         Binding("up", "history_up", "Hist ↑", show=False),
         Binding("down", "history_down", "Hist ↓", show=False),
         Binding("c", "show_tree", "Channels", show=True),
+        Binding("o", "open_last_url", "Open URL", show=True),
     ]
 
     def __init__(
@@ -133,6 +134,9 @@ class VineApp(App):
 
         palette = self.query_one(CommandPalette)
         palette.set_callback(self._on_palette_action)
+
+        chat = self.query_one(ChatView)
+        chat.set_url_click_handler(self._open_url)
 
         self._theme_names = register_all_themes(self)
 
@@ -992,6 +996,25 @@ class VineApp(App):
     def action_history_down(self) -> None:
         if self.query_one(VineInput).has_focus:
             self.query_one(VineInput).history_down()
+
+    def _open_url(self, url: str) -> None:
+        """Open a URL in the default browser."""
+        import subprocess
+        chat = self.query_one(ChatView)
+        try:
+            subprocess.Popen(["xdg-open", url])
+            chat.add_system(f"Opened: {url[:80]}")
+        except FileNotFoundError:
+            chat.add_system("xdg-open not found")
+
+    def action_open_last_url(self) -> None:
+        """Open the most recent URL in chat."""
+        chat = self.query_one(ChatView)
+        urls = chat.last_urls(1)
+        if urls:
+            self._open_url(urls[0])
+        else:
+            chat.add_system("No URLs found")
 
     def action_show_tree(self) -> None:
         self.query_one(ServerTree).focus()
