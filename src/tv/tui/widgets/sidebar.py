@@ -18,6 +18,10 @@ class ServerTree(Tree):
     }
     """
 
+    @property
+    def can_focus(self) -> bool:
+        return False
+
     def __init__(self) -> None:
         super().__init__("servers", id="server-tree")
         self._servers: dict[str, TreeNode] = {}

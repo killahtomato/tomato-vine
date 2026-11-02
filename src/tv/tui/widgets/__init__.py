@@ -63,6 +63,10 @@ class NickList(ListView):
     def __init__(self) -> None:
         super().__init__(id="nick-list")
 
+    @property
+    def can_focus(self) -> bool:
+        return False
+
     def update_nicks(self, nicks: list[str]) -> None:
         self.clear()
         for nick in sorted(nicks):

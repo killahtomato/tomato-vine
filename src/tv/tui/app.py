@@ -139,11 +139,11 @@ class VineApp(App):
 
         self._theme_names = register_all_themes(self)
 
-        self.query_one(VineInput).focus()
-
         for host, sc in self._server_configs.items():
             if sc.auto_connect:
                 await self._connect_server(host)
+
+        self.call_later(self.query_one(VineInput).focus)
 
     async def _connect_server(self, host: str) -> None:
         """Establish a connection to a server."""
