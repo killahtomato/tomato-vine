@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from textual.widgets import Static, Input, ListView, ListItem, Label, RichLog
 
-from ...irc.colors import irc_to_rich
+from ...irc.colors import irc_to_rich, strip_irc_formatting
+from ...irc.links import extract_urls, is_image_url, is_image_host_url, truncate_url
 from .sidebar import ServerTree
 
 
@@ -58,6 +59,7 @@ class ChatView(RichLog):
     def __init__(self) -> None:
         super().__init__(id="chat-view", markup=True, auto_scroll=True)
         self._buffer: list[str] = []
+        self._url_buffer: list[str] = []
         self._nick_color: str | None = None
         self._my_nick: str | None = None
 
@@ -83,20 +85,42 @@ class ChatView(RichLog):
         lines = self._buffer[-50:]
         return "\n".join(lines)
 
+    def _render_links(self, text: str) -> str:
+        """Detect image URLs and render them as clickable placeholders."""
+        urls = extract_urls(text)
+        if not urls:
+            return text
+
+        has_image = any(is_image_url(u) or is_image_host_url(u) for u in urls)
+        if not has_image:
+            return text
+
+        result = text
+        for url in urls:
+            if is_image_url(url) or is_image_host_url(url):
+                display = f"[bold magenta]🖼 {truncate_url(url)}[/bold magenta]"
+                result = result.replace(url, display)
+                self._url_buffer.append(url)
+        return result
+
+    def last_urls(self, count: int = 5) -> list[str]:
+        """Return the last N image URLs seen."""
+        return self._url_buffer[-count:]
+
     def add_message(self, nick: str, text: str, outgoing: bool = False) -> None:
-        rendered = irc_to_rich(text)
+        rendered = self._render_links(irc_to_rich(text))
         nick_display = self._highlight_nick(nick)
         if outgoing:
             self.write(f"[dim]> {nick_display}:[/dim] {rendered}")
-            self._add_line(f"> {nick}: {text}")
+            self._add_line(f"> {nick}: {strip_irc_formatting(text)}")
         else:
             self.write(f"[bold cyan]<{nick_display}>[/bold cyan] {rendered}")
-            self._add_line(f"<{nick}> {text}")
+            self._add_line(f"<{nick}> {strip_irc_formatting(text)}")
 
     def add_system(self, text: str) -> None:
-        rendered = irc_to_rich(text)
+        rendered = self._render_links(irc_to_rich(text))
         self.write(f"[dim italic]* {rendered}[/dim italic]")
-        self._add_line(f"* {text}")
+        self._add_line(f"* {strip_irc_formatting(text)}")
 
     def add_join(self, nick: str, channel: str) -> None:
         self.write(f"[dim]→ {nick} joined {channel}[/dim]")

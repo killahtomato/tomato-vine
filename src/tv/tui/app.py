@@ -701,6 +701,7 @@ class VineApp(App):
                     "/raw <command> — send raw IRC",
                     "/quit [reason] — disconnect and exit",
                     "/copy — copy last 50 lines to clipboard",
+                    "/open — open links from recent messages",
             "/help [command] — show this help",
                 ]
                 chat.add_system("Available commands:")
@@ -794,6 +795,16 @@ class VineApp(App):
                 except FileNotFoundError:
                     chat.add_system("Clipboard tool not found — install wl-copy or xclip")
 
+        elif cmd == "/open":
+            import subprocess
+            urls = chat.last_urls(5)
+            if urls:
+                for url in urls:
+                    subprocess.Popen(["xdg-open", url])
+                chat.add_system(f"Opened {len(urls)} link(s)")
+            else:
+                chat.add_system("No links found in recent messages")
+
         elif cmd == "/server":
             await self._handle_server_command(rest)
 
@@ -821,6 +832,7 @@ class VineApp(App):
             "server remove": "Remove a server. Usage: /server remove host",
             "raw": "Send raw IRC. Usage: /raw PRIVMSG #chan :hello",
             "copy": "Copy last 50 lines to clipboard",
+            "open": "Open URLs from recent messages in browser",
             "help": "Show this help or details for a command",
         }
         return help_topics.get(topic)
