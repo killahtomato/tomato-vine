@@ -22,15 +22,22 @@ def setup_logging(debug: bool = False) -> None:
 
     _chat_logger = logging.getLogger("tv.chat")
     _chat_logger.setLevel(logging.DEBUG)
+    _chat_logger.propagate = False
     chat_handler = logging.FileHandler(CHAT_LOG, mode="a", encoding="utf-8")
     chat_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", datefmt="%H:%M:%S"))
     _chat_logger.addHandler(chat_handler)
 
     _error_logger = logging.getLogger("tv.error")
     _error_logger.setLevel(logging.DEBUG if debug else logging.INFO)
+    _error_logger.propagate = False
     error_handler = logging.FileHandler(ERROR_LOG, mode="a", encoding="utf-8")
     error_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
     _error_logger.addHandler(error_handler)
+
+    for name in ("tv.irc.connection", "tv.irc.capabilities", "tv.tui.app"):
+        logger = logging.getLogger(name)
+        logger.setLevel(logging.DEBUG if debug else logging.INFO)
+        logger.addHandler(error_handler)
 
 
 def chat_log() -> logging.Logger:
