@@ -55,7 +55,7 @@ class VineApp(App):
     }
 
     #sidebar {
-        width: 24;
+        width: 44;
         height: 1fr;
         layout: vertical;
     }
@@ -91,6 +91,8 @@ class VineApp(App):
         self._connections: dict[str, IRCConnection] = {}
         self._channels: dict[str, dict[str, dict]] = {}
         self._pending_names: dict[str, dict[str, list[str]]] = {}
+        self._pending_list: dict[str, list[dict]] = {}
+        self._list_loading: dict[str, bool] = {}
         self._active_server: str | None = None
         self._active_channel: str = ""
 
@@ -284,8 +286,53 @@ class VineApp(App):
                     self._channels[host][channel]["topic"] = msg.trailing
             return
 
+        if msg.command == "322":
+            await self._handle_list_entry(host, msg)
+            return
+
+        if msg.command == "323":
+            await self._handle_list_end(host)
+            return
+
         if msg.is_numeric:
             chat.add_system(f"[{host}] [{msg.command}] {msg.trailing}")
+
+    async def _handle_list_entry(self, host: str, msg) -> None:
+        if len(msg.params) < 3:
+            return
+        channel = msg.params[1]
+        try:
+            users = int(msg.params[2])
+        except ValueError:
+            users = 0
+        topic = msg.trailing if msg.trailing else ""
+        self._pending_list.setdefault(host, []).append({
+            "channel": channel,
+            "users": users,
+            "topic": topic,
+        })
+
+    async def _handle_list_end(self, host: str) -> None:
+        chat = self.query_one(ChatView)
+        channels = self._pending_list.pop(host, [])
+        self._list_loading.pop(host, None)
+
+        if not channels:
+            chat.add_system(f"[{host}] No channels found")
+            return
+
+        channels.sort(key=lambda c: c["users"], reverse=True)
+        max_name = max(len(c["channel"]) for c in channels)
+        max_name = max(max_name, 20)
+
+        header = f"{'Channel':<{max_name}}  {'Users':>5}  Topic"
+        sep = "─" * (max_name + 30)
+        chat.add_system(f"[{host}] Channel list ({len(channels)} channels):")
+        chat.add_system(f"  {header}")
+        chat.add_system(f"  {sep}")
+        for ch in channels:
+            topic = ch["topic"][:50]
+            chat.add_system(f"  {ch['channel']:<{max_name}}  {ch['users']:>5}  {topic}")
 
     async def _handle_join(self, host: str, msg) -> None:
         chat = self.query_one(ChatView)
@@ -625,10 +672,55 @@ class VineApp(App):
                     await conn.send_raw(quit_())
             self.exit()
 
+        elif cmd == "/help":
+            if rest.strip():
+                topic = rest.strip().lower().lstrip("/")
+                help_text = self._command_help(topic)
+                if help_text:
+                    chat.add_system(f"/{topic}: {help_text}")
+                else:
+                    chat.add_system(f"No help available for /{topic}")
+            else:
+                commands = [
+                    "/join <#channel> — join a channel",
+                    "/list [filter] — browse public channels",
+                    "/part [#channel] [reason] — leave a channel",
+                    "/msg <nick> <text> — private message",
+                    "/me <text> — send action",
+                    "/topic [text] — view or set topic",
+                    "/kick <nick> [reason] — kick user",
+                    "/mode <modes> [params] — set channel mode",
+                    "/who [target] — query WHO",
+                    "/away [reason] — set away",
+                    "/nick <newnick> — change nickname",
+                    "/server list — list servers",
+                    "/server add host:port nick [#chans] — add server",
+                    "/server remove host — remove server",
+                    "/raw <command> — send raw IRC",
+                    "/quit [reason] — disconnect and exit",
+                    "/copy — copy last 50 lines to clipboard",
+            "/help [command] — show this help",
+                ]
+                chat.add_system("Available commands:")
+                for line in commands:
+                    chat.add_system(f"  {line}")
+
         elif cmd == "/join":
             channel = rest.strip()
             if channel and self._active_server:
                 await self._join_channel(self._active_server, channel)
+
+        elif cmd == "/list":
+            if not self._active_server or not conn:
+                chat.add_system("No active server")
+                return
+            self._pending_list[self._active_server] = []
+            self._list_loading[self._active_server] = True
+            if rest.strip():
+                await conn.send_raw(f"LIST {rest.strip()}")
+            else:
+                await conn.send_raw("LIST")
+            chat.add_system(f"[{self._active_server}] Loading channel list...")
 
         elif cmd == "/part":
             channel = rest.strip() or self._active_channel
@@ -687,11 +779,49 @@ class VineApp(App):
             if rest and conn:
                 await conn.send_raw(rest)
 
+        elif cmd == "/copy":
+            content = chat.copy_visible()
+            try:
+                import subprocess
+                subprocess.Popen(["wl-copy"], stdin=subprocess.PIPE).communicate(content.encode())
+                chat.add_system("Copied last 50 lines to clipboard")
+            except FileNotFoundError:
+                try:
+                    subprocess.Popen(["xclip", "-selection", "clipboard"], stdin=subprocess.PIPE).communicate(content.encode())
+                    chat.add_system("Copied last 50 lines to clipboard")
+                except FileNotFoundError:
+                    chat.add_system("Clipboard tool not found — install wl-copy or xclip")
+
         elif cmd == "/server":
             await self._handle_server_command(rest)
 
         else:
             chat.add_system(f"Unknown command: {cmd}")
+
+    def _command_help(self, topic: str) -> str | None:
+        """Return help text for a specific command."""
+        help_topics = {
+            "join": "Join a channel. Usage: /join #channel",
+            "list": "Browse public channels. Usage: /list [filter]",
+            "part": "Leave a channel. Usage: /part [#channel] [reason]",
+            "msg": "Send a private message. Usage: /msg nick text",
+            "me": "Send a CTCP action. Usage: /me waves hello",
+            "topic": "View or set channel topic. Usage: /topic [new topic]",
+            "kick": "Kick a user. Usage: /kick nick [reason]",
+            "mode": "Set channel mode. Usage: /mode +o nick",
+            "who": "Query WHO. Usage: /who [nick|channel]",
+            "away": "Set or clear away. Usage: /away [reason]",
+            "nick": "Change nickname. Usage: /nick newnick",
+            "quit": "Disconnect and exit. Usage: /quit [reason]",
+            "server": "Manage servers. Subcommands: list, add, remove",
+            "server list": "List configured servers",
+            "server add": "Add a server. Usage: /server add host:port nick [#chans]",
+            "server remove": "Remove a server. Usage: /server remove host",
+            "raw": "Send raw IRC. Usage: /raw PRIVMSG #chan :hello",
+            "copy": "Copy last 50 lines to clipboard",
+            "help": "Show this help or details for a command",
+        }
+        return help_topics.get(topic)
 
     async def _handle_server_command(self, rest: str) -> None:
         """Handle /server add/remove/list subcommands."""
