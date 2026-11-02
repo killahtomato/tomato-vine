@@ -75,4 +75,5 @@ DEFAULT_CAPS = [
     "extended-join",
     "message-tags",
     "labeled-response",
+    "sasl",
 ]
