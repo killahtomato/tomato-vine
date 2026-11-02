@@ -63,14 +63,18 @@ tv tui                          # launch the interactive TUI
 | `/away [reason]` | Set/unset away |
 | `/nick newnick` | Change nickname |
 | `/raw command` | Send raw IRC line |
+| `/server list` | List configured servers |
+| `/server add host:port nick [#chans]` | Add and connect to a server |
+| `/server remove host` | Disconnect and remove a server |
 | `/quit [reason]` | Disconnect and quit |
 
 ## Features
 
+- **Multi-server** — connect to multiple servers simultaneously, TreeView sidebar with server → channel → DM hierarchy
 - **SASL PLAIN authentication**
 - **IRCv3 capabilities**: multi-prefix, account-notify, away-notify, extended-join, message-tags
 - **Auto-reconnect** with exponential backoff
-- **TreeView sidebar** with channel navigation and DM tracking
+- **TreeView sidebar** with server navigation and DM tracking
 - **IRC color code rendering** (mIRC colors → Rich markup)
 - **CTCP auto-replies**: VERSION, PING, TIME, FINGER
 - **WHO/NAMES** — automatic nick list population

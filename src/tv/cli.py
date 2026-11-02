@@ -9,6 +9,7 @@ import logging
 import sys
 
 from . import config
+from .config import AppConfig
 from .irc.connection import IRCConnection
 from .irc.parser import parse_line
 from .tui.app import VineApp
@@ -133,22 +134,15 @@ def cmd_tui(args: argparse.Namespace) -> int:
         return 1
 
     cfg = config.AppConfig.model_validate_json(config.CONFIG_FILE.read_text())
-    server = None
-    if args.server:
-        for s in cfg.servers:
-            if s.host == args.server:
-                server = s
-                break
-        if not server:
-            print(f"Server '{args.server}' not found in config.")
-            return 1
-    elif cfg.servers:
-        server = cfg.servers[0]
-    else:
+    if not cfg.servers:
         print("No servers configured.")
         return 1
 
-    app = VineApp(server_config=server)
+    if args.server and args.server not in [s.host for s in cfg.servers]:
+        print(f"Server '{args.server}' not found in config.")
+        return 1
+
+    app = VineApp(app_config=cfg)
     app.run()
     return 0
 
