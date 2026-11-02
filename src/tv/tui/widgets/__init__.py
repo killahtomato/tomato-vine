@@ -87,21 +87,19 @@ class ChatView(RichLog):
         return "\n".join(lines)
 
     def _render_links(self, text: str) -> str:
-        """Detect image URLs and render them as clickable placeholders."""
+        """Detect URLs and render them as clickable links."""
         urls = extract_urls(text)
         if not urls:
             return text
 
-        has_image = any(is_image_url(u) or is_image_host_url(u) for u in urls)
-        if not has_image:
-            return text
-
         result = text
         for url in urls:
+            self._url_buffer.append(url)
             if is_image_url(url) or is_image_host_url(url):
-                display = f"[bold magenta]🖼 {truncate_url(url)}[/bold magenta]"
-                result = result.replace(url, display)
-                self._url_buffer.append(url)
+                display = f"[link={url}][bold magenta]🖼 {truncate_url(url)}[/bold magenta][/link]"
+            else:
+                display = f"[link={url}]{url}[/link]"
+            result = result.replace(url, display)
         return result
 
     def last_urls(self, count: int = 5) -> list[str]:
