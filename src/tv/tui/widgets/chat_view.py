@@ -159,5 +159,4 @@ class MessagePane(VerticalScroll):
     def last_urls(self, count: int = 5) -> list[str]:
         return self._url_buffer[-count:]
 
-    def set_url_click_handler(self, fn) -> None:
-        pass
+
