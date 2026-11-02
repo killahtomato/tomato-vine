@@ -154,6 +154,9 @@ class IRCConnection:
 
         self._registration_phase = "caps"
 
+        await self.send_raw(nick(self.nickname))
+        await self.send_raw(user(self.username, self.realname))
+
         if self.sasl_username and self.sasl_password:
             await self.send_raw(cap_req("sasl"))
         elif self.capabilities:
@@ -193,6 +196,7 @@ class IRCConnection:
 
     async def _handle_line(self, line: str) -> None:
         """Route an IRC line through protocol handlers and user callbacks."""
+        log.debug("<< %s", line[:200])
         try:
             msg = parse_line(line)
         except ValueError:
@@ -254,10 +258,6 @@ class IRCConnection:
             log.info("SASL authentication successful")
             self._registration_phase = "done"
             await self.send_raw(cap_end())
-            if self.password and not self.sasl_username:
-                await self.send_raw(pass_(self.password))
-            await self.send_raw(nick(self.nickname))
-            await self.send_raw(user(self.username, self.realname))
             return True
 
         if cmd == "904" or cmd == "905":
@@ -298,17 +298,11 @@ class IRCConnection:
             await self.send_raw(cap_end())
             if self.password:
                 await self.send_raw(pass_(self.password))
-            await self.send_raw(nick(self.nickname))
-            await self.send_raw(user(self.username, self.realname))
             return
 
         if self._registration_phase == "sasl":
             self._registration_phase = "reg"
             await self.send_raw(cap_end())
-            if self.password and not self.sasl_username:
-                await self.send_raw(pass_(self.password))
-            await self.send_raw(nick(self.nickname))
-            await self.send_raw(user(self.username, self.realname))
             return
 
     async def _write_loop(self) -> None:
@@ -318,6 +312,7 @@ class IRCConnection:
             while not self._closed:
                 if self._send_queue:
                     line = self._send_queue.popleft()
+                    log.debug(">> %s", line[:120])
                     self._writer.write((line + "\r\n").encode(self.encoding))
                     await self._writer.drain()
                 else:
