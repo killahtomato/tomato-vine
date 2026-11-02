@@ -252,8 +252,12 @@ class IRCConnection:
 
         if cmd == "903":
             log.info("SASL authentication successful")
-            if self._registration_phase == "sasl":
-                await self._complete_registration()
+            self._registration_phase = "done"
+            await self.send_raw(cap_end())
+            if self.password and not self.sasl_username:
+                await self.send_raw(pass_(self.password))
+            await self.send_raw(nick(self.nickname))
+            await self.send_raw(user(self.username, self.realname))
             return True
 
         if cmd == "904" or cmd == "905":
