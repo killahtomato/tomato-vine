@@ -74,6 +74,8 @@ class IRCConnection:
         self._attempt = 0
         self._transport: asyncio.Transport | None = None
         self._registered = False
+        self._sasl_failed = False
+        self._sasl_cap_acked = False
 
         self._on_connect: list[Callable[[], Awaitable[None]]] = []
         self._on_disconnect: list[Callable[[], Awaitable[None]]] = []
@@ -115,6 +117,8 @@ class IRCConnection:
             except (OSError, asyncio.CancelledError, ConnectionError) as exc:
                 self._connected = False
                 self._registered = False
+                self._sasl_failed = False
+                self._sasl_cap_acked = False
                 self._attempt += 1
                 log.warning(
                     "connection to %s:%d failed (attempt %d/%d): %s",
@@ -145,11 +149,14 @@ class IRCConnection:
             self.host, self.port, ssl=ssl_ctx,
         )
         self._transport = self._writer.transport
+        self._connected = True
         log.info("connected to %s:%d (tls=%s)", self.host, self.port, self.use_tls)
 
         self._registration_phase = "caps"
 
-        if self.capabilities:
+        if self.sasl_username and self.sasl_password:
+            await self.send_raw(cap_req("sasl"))
+        elif self.capabilities:
             await self.send_raw(cap_req(" ".join(self.capabilities)))
 
         self._read_task = asyncio.create_task(self._read_loop())
@@ -211,10 +218,16 @@ class IRCConnection:
             caps = msg.trailing
             if sub == "ACK":
                 log.debug("cap ack: %s", caps)
+                acked = set(caps.split())
+                if "sasl" in acked:
+                    self._sasl_cap_acked = True
                 if self._registration_phase == "caps":
                     await self._complete_registration()
             elif sub == "NAK":
                 log.debug("cap nak: %s", caps)
+                nak = set(caps.split())
+                if "sasl" in nak:
+                    self._sasl_cap_acked = False
                 if self._registration_phase == "caps":
                     await self._complete_registration()
             elif sub == "NEW":
@@ -226,11 +239,15 @@ class IRCConnection:
             return True
 
         if cmd == "AUTHENTICATE":
-            if msg.trailing == "+" and self.sasl_username and self.sasl_password:
+            if self.sasl_username and self.sasl_password and msg.trailing in ("+", ""):
                 blob = base64.b64encode(
                     f"{self.sasl_username}\x00{self.sasl_username}\x00{self.sasl_password}".encode()
                 ).decode()
-                await self.send_raw(f"AUTHENTICATE {blob}")
+                if len(blob) > 400:
+                    for i in range(0, len(blob), 400):
+                        await self.send_raw(f"AUTHENTICATE {blob[i:i+400]}")
+                else:
+                    await self.send_raw(f"AUTHENTICATE {blob}")
             return True
 
         if cmd == "903":
@@ -241,6 +258,7 @@ class IRCConnection:
 
         if cmd == "904" or cmd == "905":
             log.warning("SASL authentication failed: %s", msg.trailing)
+            self._sasl_failed = True
             if self._registration_phase == "sasl":
                 await self._complete_registration()
             return True
@@ -252,6 +270,9 @@ class IRCConnection:
         if cmd == "001":
             self._registered = True
             self._registration_phase = "done"
+            if self._sasl_failed and self.sasl_username and self.sasl_password:
+                await self.send_raw(f"PRIVMSG NickServ :IDENTIFY {self.sasl_username} {self.sasl_password}")
+                self._sasl_failed = False
             for fn in self._on_registered:
                 await fn()
             return False
@@ -265,11 +286,10 @@ class IRCConnection:
     async def _complete_registration(self) -> None:
         """Move to the next registration phase."""
         if self._registration_phase == "caps":
-            if self.sasl_username and self.sasl_password:
+            if self.sasl_username and self.sasl_password and self._sasl_cap_acked:
                 self._registration_phase = "sasl"
                 await self.send_raw("AUTHENTICATE PLAIN")
                 return
-            # No SASL — jump straight to reg
             self._registration_phase = "reg"
             await self.send_raw(cap_end())
             if self.password:
