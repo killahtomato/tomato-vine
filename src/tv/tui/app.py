@@ -585,10 +585,9 @@ class VineApp(App):
     async def _on_registered(self, host: str) -> None:
         tree = self.query_one(ServerTree)
         tree.set_server_status(host, "connected")
-        if host == self._active_server:
-            status_bar = self.query_one(StatusBar)
-            sc = self._server_configs[host]
-            status_bar.update_status(server=host, nick=sc.nickname, status="connected")
+        status_bar = self.query_one(StatusBar)
+        sc = self._server_configs[host]
+        status_bar.update_status(server=host, nick=sc.nickname, status="connected")
         chat = self.query_one(ChatView)
         sc = self._server_configs[host]
         chat.set_nick_highlight(sc.nickname, sc.nick_color)
@@ -599,7 +598,8 @@ class VineApp(App):
         tree.set_server_status(host, "disconnected")
         if host == self._active_server:
             status_bar = self.query_one(StatusBar)
-            status_bar.update_status(status="disconnected")
+            sc = self._server_configs[host]
+            status_bar.update_status(server=host, nick=sc.nickname, status="disconnected")
         chat = self.query_one(ChatView)
         chat.add_system(f"[{host}] Disconnected. Reconnecting...")
 
@@ -621,7 +621,7 @@ class VineApp(App):
             first_ch = next(iter(self._channels.get(host, {})), "")
             self._active_channel = first_ch
             status_bar = self.query_one(StatusBar)
-            status_bar.update_status(server=host, nick=nick, channel=first_ch)
+            status_bar.update_status(server=host, nick=nick, channel=first_ch, status="connecting...")
             chat = self.query_one(ChatView)
             chat.add_system(f"Switched to {host}")
             return
