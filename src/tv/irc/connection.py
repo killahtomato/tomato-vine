@@ -185,6 +185,8 @@ class IRCConnection:
                     await self._handle_line(line)
         except (OSError, asyncio.CancelledError) as exc:
             log.debug("read loop ended: %s", exc)
+        except Exception as exc:
+            log.error("read loop crashed: %s: %s", type(exc).__name__, exc)
         finally:
             self._connected = False
             self._registered = False
@@ -199,22 +201,27 @@ class IRCConnection:
         log.info("<< %s", line[:200])
         try:
             msg = parse_line(line)
-        except ValueError:
+        except Exception as exc:
+            log.error("parse error: %s: %s", exc, line[:200])
             return
 
         # Protocol-level handling
         handled = await self._handle_protocol(msg)
 
         if not handled:
-            for fn in self._on_message:
-                await fn(line)
+            try:
+                for fn in self._on_message:
+                    await fn(line)
+            except Exception as exc:
+                log.error("handler error: %s: %s", exc, line[:200])
 
     async def _handle_protocol(self, msg) -> bool:
         """Handle protocol-level messages. Returns True if consumed."""
         cmd = msg.command
 
         if cmd == "PING":
-            await self.send_raw(f"PONG :{msg.trailing}")
+            token = msg.trailing if msg.trailing else (msg.params[0] if msg.params else "")
+            await self.send_raw(f"PONG :{token}")
             return True
 
         if cmd == "CAP":
