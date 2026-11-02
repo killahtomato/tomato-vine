@@ -790,6 +790,8 @@ class VineApp(App):
 
         elif cmd == "/join":
             channel = rest.strip()
+            if channel and not channel.startswith("#"):
+                channel = f"#{channel}"
             if channel and self._active_server:
                 await self._join_channel(self._active_server, channel)
 
