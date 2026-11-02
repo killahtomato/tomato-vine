@@ -6,6 +6,7 @@ from textual.widgets import Static, Input, ListView, ListItem, Label, RichLog
 
 from ...irc.colors import irc_to_rich, strip_irc_formatting
 from ...irc.links import extract_urls, is_image_url, is_image_host_url, truncate_url
+from .palette import CommandPalette, DEFAULT_ACTIONS
 from .sidebar import ServerTree
 
 
@@ -142,9 +143,10 @@ class NickList(ListView):
     DEFAULT_CSS = """
     NickList {
         height: 1fr;
-        width: 20;
+        width: 22;
         background: $panel;
         padding: 0 1;
+        scrollbar-size: 1 1;
     }
     """
 

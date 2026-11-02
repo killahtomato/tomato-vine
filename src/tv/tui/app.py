@@ -13,7 +13,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Input
 
-from .widgets import ChatView, NickList, ServerTree, StatusBar, VineInput
+from .widgets import ChatView, CommandPalette, NickList, ServerTree, StatusBar, VineInput
 from ..config import AppConfig, ServerConfig
 from ..irc.capabilities import DEFAULT_CAPS
 from ..irc.connection import IRCConnection
@@ -64,6 +64,11 @@ class VineApp(App):
         height: 1fr;
     }
 
+    #sidebar-bottom {
+        height: 1fr;
+        layout: horizontal;
+    }
+
     #input-area {
         height: 3;
     }
@@ -106,7 +111,9 @@ class VineApp(App):
                 yield ChatView()
             with Vertical(id="sidebar"):
                 yield ServerTree()
-                yield NickList()
+                with Horizontal(id="sidebar-bottom"):
+                    yield NickList()
+                    yield CommandPalette()
         with Horizontal(id="input-area"):
             yield VineInput()
 
@@ -117,6 +124,9 @@ class VineApp(App):
         tree = self.query_one(ServerTree)
         for host, sc in self._server_configs.items():
             tree.add_server(host, sc.nickname)
+
+        palette = self.query_one(CommandPalette)
+        palette.set_callback(self._on_palette_action)
 
         for host, sc in self._server_configs.items():
             if sc.auto_connect:
@@ -637,6 +647,16 @@ class VineApp(App):
                 chat.add_system(f"Switched to {host}/{channel}")
                 self._update_nick_list(host)
                 return
+
+    async def _on_palette_action(self, command: str) -> None:
+        """Handle a command palette button press."""
+        input_widget = self.query_one(VineInput)
+        input_widget.value = command
+        input_widget.focus()
+        if command.endswith(" "):
+            return
+        await self._handle_command(command)
+        input_widget.value = ""
 
     @on(Input.Submitted, "#vine-input")
     async def on_input_submitted(self, event: Input.Submitted) -> None:
