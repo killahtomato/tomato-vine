@@ -66,7 +66,8 @@ class CommandPalette(Static):
             event.stop()
         elif event.key == "enter":
             if self._on_action and self._selected < len(self._actions):
-                self._on_action(self._actions[self._selected].command)
+                import asyncio
+                asyncio.create_task(self._on_action(self._actions[self._selected].command))
             event.stop()
 
     def set_callback(self, fn) -> None:
@@ -79,4 +80,5 @@ class CommandPalette(Static):
             self._selected = row
             self._refresh()
             if self._on_action:
-                self._on_action(self._actions[row].command)
+                import asyncio
+                asyncio.create_task(self._on_action(self._actions[row].command))
