@@ -593,26 +593,44 @@ class VineApp(App):
 
     async def _on_registered(self, host: str) -> None:
         error_log().info("Connected to %s as %s", host, self._server_configs[host].nickname)
-        tree = self.query_one(ServerTree)
-        tree.set_server_status(host, "connected")
-        status_bar = self.query_one(StatusBar)
-        sc = self._server_configs[host]
-        status_bar.update_status(server=host, nick=sc.nickname, status="connected")
-        chat = self.query_one(ChatView)
-        sc = self._server_configs[host]
-        chat.set_nick_highlight(sc.nickname, sc.nick_color)
-        chat.add_system(f"[{host}] Registration complete.")
+        try:
+            tree = self.query_one(ServerTree)
+            tree.set_server_status(host, "connected")
+        except Exception:
+            pass
+        try:
+            status_bar = self.query_one(StatusBar)
+            sc = self._server_configs[host]
+            status_bar.update_status(server=host, nick=sc.nickname, status="connected")
+        except Exception:
+            pass
+        try:
+            chat = self.query_one(ChatView)
+            sc = self._server_configs[host]
+            chat.set_nick_highlight(sc.nickname, sc.nick_color)
+            chat.add_system(f"[{host}] Registration complete.")
+        except Exception as exc:
+            error_log().debug("register display error: %s", exc)
 
     async def _on_disconnected(self, host: str) -> None:
         error_log().warning("Disconnected from %s", host)
-        tree = self.query_one(ServerTree)
-        tree.set_server_status(host, "disconnected")
-        if host == self._active_server:
-            status_bar = self.query_one(StatusBar)
-            sc = self._server_configs[host]
-            status_bar.update_status(server=host, nick=sc.nickname, status="disconnected")
-        chat = self.query_one(ChatView)
-        chat.add_system(f"[{host}] Disconnected. Reconnecting...")
+        try:
+            tree = self.query_one(ServerTree)
+            tree.set_server_status(host, "disconnected")
+        except Exception:
+            pass
+        try:
+            if host == self._active_server:
+                status_bar = self.query_one(StatusBar)
+                sc = self._server_configs[host]
+                status_bar.update_status(server=host, nick=sc.nickname, status="disconnected")
+        except Exception:
+            pass
+        try:
+            chat = self.query_one(ChatView)
+            chat.add_system(f"[{host}] Disconnected. Reconnecting...")
+        except Exception:
+            pass
 
     async def on_tree_node_selected(self, event: ServerTree.NodeSelected) -> None:
         """Handle channel/DM/server selection from the tree."""

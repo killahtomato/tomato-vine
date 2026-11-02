@@ -7,7 +7,7 @@ import re
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Static
 
-from ...irc.colors import irc_to_rich, strip_irc_formatting
+from ...irc.colors import strip_irc_formatting
 from ...irc.links import extract_urls, is_image_url, is_image_host_url, truncate_url
 
 
@@ -44,22 +44,30 @@ class MessageRow(Horizontal):
         height: auto;
         width: 100%;
     }
-    MessageRow .bubble {
+    MessageRow Static {
         width: auto;
-        max-width: 100%;
         height: auto;
         padding: 0 1;
+    }
+    MessageRow .message {
         link-color: $accent;
         link-style: underline;
     }
     """
 
-    def __init__(self, content: str) -> None:
+    def __init__(self, nick_style: str, nick: str, message: str, outgoing: bool = False) -> None:
         super().__init__(id=None)
-        self._content = content
+        self._nick_style = nick_style
+        self._nick = nick
+        self._message = message
+        self._outgoing = outgoing
 
     def compose(self) -> None:
-        yield Static(self._content, classes="bubble")
+        if self._outgoing:
+            yield Static(f"[dim]> {self._nick}:[/dim]", classes="nick")
+        else:
+            yield Static(f"[{self._nick_style}]<{self._nick}>[/{self._nick_style}]", classes="nick")
+        yield Static(f" {self._message}", classes="message")
 
 
 class MessagePane(VerticalScroll):
@@ -104,42 +112,45 @@ class MessagePane(VerticalScroll):
         for url in extract_urls(text):
             self._url_buffer.append(url)
 
-    def _add_message(self, content: str, plain_text: str) -> None:
+    def _add_message(self, plain_text: str, row: MessageRow) -> None:
         self._add_line(plain_text)
         self._track_urls(plain_text)
-        row = MessageRow(content)
         self.mount(row)
-        self.scroll_end(animate=False)
+        if len(self._buffer) % 5 == 0:
+            self.scroll_end(animate=False)
 
     def add_message(self, nick: str, text: str, outgoing: bool = False) -> None:
-        rendered = _render_links(irc_to_rich(text))
+        clean = strip_irc_formatting(text)
+        rendered = _render_links(clean)
         nick_display = self._highlight_nick(nick)
         if outgoing:
-            content = f"[dim]> {nick_display}:[/dim] {rendered}"
-            plain = f"> {nick}: {text}"
+            plain = f"> {nick}: {clean}"
+            row = MessageRow("dim", f"> {nick_display}:", rendered)
         else:
-            content = f"[bold cyan]<{nick_display}>[/bold cyan] {rendered}"
-            plain = f"<{nick}> {text}"
-        self._add_message(content, plain)
+            plain = f"<{nick}> {clean}"
+            nick_style = f"bold {self._nick_color or 'cyan'}"
+            row = MessageRow(nick_style, f"<{nick_display}>", rendered)
+        self._add_message(plain, row)
 
     def add_system(self, text: str) -> None:
-        rendered = _render_links(irc_to_rich(text))
-        content = f"[dim italic]* {rendered}[/dim italic]"
-        plain = text
-        self._add_message(content, plain)
+        clean = strip_irc_formatting(text)
+        rendered = _render_links(clean)
+        row = MessageRow("dim italic", "*", rendered)
+        self._add_message(clean, row)
 
     def add_join(self, nick: str, channel: str) -> None:
-        content = f"[dim]→ {nick} joined {channel}[/dim]"
-        self._add_message(content, f"→ {nick} joined {channel}")
+        row = MessageRow("dim", "→", f"{nick} joined {channel}")
+        self._add_message(f"→ {nick} joined {channel}", row)
 
     def add_part(self, nick: str, channel: str) -> None:
-        content = f"[dim]← {nick} left {channel}[/dim]"
-        self._add_message(content, f"← {nick} left {channel}")
+        row = MessageRow("dim", "←", f"{nick} left {channel}")
+        self._add_message(f"← {nick} left {channel}", row)
 
     def add_action(self, nick: str, text: str) -> None:
-        rendered = _render_links(irc_to_rich(text))
-        content = f"[italic magenta]* {nick} {rendered}[/italic magenta]"
-        self._add_message(content, f"* {nick} {text}")
+        clean = strip_irc_formatting(text)
+        rendered = _render_links(clean)
+        row = MessageRow("italic magenta", f"* {nick}", rendered)
+        self._add_message(f"* {nick} {clean}", row)
 
     def copy_visible(self) -> str:
         lines = self._buffer[-50:]

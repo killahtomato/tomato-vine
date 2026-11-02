@@ -213,7 +213,8 @@ class IRCConnection:
                 for fn in self._on_message:
                     await fn(line)
             except Exception as exc:
-                log.error("handler error: %s: %s", exc, line[:200])
+                import traceback
+                log.error("handler error: %s: %s\n%s", exc, line[:200], traceback.format_exc())
 
     async def _handle_protocol(self, msg) -> bool:
         """Handle protocol-level messages. Returns True if consumed."""
