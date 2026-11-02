@@ -457,7 +457,7 @@ class VineApp(App):
             sc.nickname = new_nick
             if host == self._active_server:
                 status_bar = self.query_one(StatusBar)
-                status_bar.update_status(nick=new_nick)
+                status_bar.update_status(server=host, nick=new_nick, status="connected")
             chat.add_system(f"[{host}] You are now known as {new_nick}")
         else:
             for channel, data in self._channels[host].items():
@@ -654,7 +654,7 @@ class VineApp(App):
                 tree.mark_active(channel)
                 sc = self._server_configs[host]
                 status_bar = self.query_one(StatusBar)
-                status_bar.update_status(server=host, channel=channel, nick=sc.nickname)
+                status_bar.update_status(server=host, channel=channel, nick=sc.nickname, status="connected")
                 chat = self.query_one(ChatView)
                 chat.add_system(f"Switched to {host}/{channel}")
                 self._update_nick_list(host)
