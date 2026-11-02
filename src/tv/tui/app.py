@@ -105,6 +105,7 @@ class VineApp(App):
         self._active_channel: str = ""
         self._current_theme: str = app_config.theme
         self._theme_names: list[str] = []
+        self._connecting: set[str] = set()
 
         for sc in app_config.servers:
             self._server_configs[sc.host] = sc
@@ -123,7 +124,6 @@ class VineApp(App):
             yield VineInput()
 
     async def on_mount(self) -> None:
-        setup_logging()
         status_bar = self.query_one(StatusBar)
         status_bar.update_status(nick="—", status="idle")
 
@@ -621,7 +621,8 @@ class VineApp(App):
             host = label[2:].strip()
             if "@" in host:
                 host = host.split("@")[-1]
-            if host not in self._connections:
+            if host not in self._connections and host not in self._connecting:
+                self._connecting.add(host)
                 await self._connect_server(host)
             self._active_server = host
             sc = self._server_configs.get(host)
