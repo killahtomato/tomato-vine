@@ -139,6 +139,8 @@ class VineApp(App):
 
         self._theme_names = register_all_themes(self)
 
+        self.query_one(VineInput).focus()
+
         for host, sc in self._server_configs.items():
             if sc.auto_connect:
                 await self._connect_server(host)
@@ -993,10 +995,7 @@ class VineApp(App):
             chat.add_system("Usage: /server [list|add|remove]")
 
     def action_cycle_focus(self) -> None:
-        if self.query_one(VineInput).has_focus:
-            self.query_one(ChatView).focus()
-        else:
-            self.query_one(VineInput).focus()
+        self.query_one(VineInput).focus()
 
     def action_refresh(self) -> None:
         self.refresh()

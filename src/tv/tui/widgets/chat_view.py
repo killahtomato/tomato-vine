@@ -77,6 +77,9 @@ class MessagePane(VerticalScroll):
     MessagePane {
         height: 1fr;
         padding: 0 1;
+        &:focus {
+            background: $surface;
+        }
     }
     """
 
