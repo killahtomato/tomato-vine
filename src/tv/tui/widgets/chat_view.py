@@ -129,6 +129,7 @@ class MessagePane(VerticalScroll):
         self._add_line(plain_text)
         self._track_urls(plain_text)
         self.mount(row)
+        self.scroll_end(animate=False)
         self._msg_count += 1
         if self._msg_count % 500 == 0:
             self._trim_old_widgets()
