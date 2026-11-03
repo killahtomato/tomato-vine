@@ -152,7 +152,9 @@ def build_parser() -> argparse.ArgumentParser:
         prog="tv",
         description="Tomato-Vine — a modern IRC TUI client.",
     )
-    parser.add_argument("--debug", action="store_true", help="enable debug logging")
+    parser.add_argument("--debug", action="store_true", help="enable debug logging to error log")
+    parser.add_argument("--log-chat", action="store_true", help="log chat messages to chat.log")
+    parser.add_argument("--log-errors", action="store_true", help="log connection events to error.log")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("status", help="show configuration and server status")
@@ -177,7 +179,11 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     from .log import setup_logging
-    setup_logging(debug=args.debug)
+    setup_logging(
+        debug=args.debug,
+        log_chat=args.log_chat,
+        log_errors=args.log_errors,
+    )
 
     if args.command == "status":
         return cmd_status(args)

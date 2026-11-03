@@ -34,7 +34,11 @@ tv tui                          # launch the interactive TUI
 | `tv status` | Show configured servers and connection info |
 | `tv connect [-s host]` | Connect in simple REPL mode |
 | `tv tui [-s host]` | Launch the interactive TUI |
-| `tv --debug tui` | Launch TUI with debug logging |
+| `tv --debug tui` | Launch TUI with debug logging to error.log |
+| `tv --log-chat tui` | Launch TUI with chat logging to chat.log |
+| `tv --log-errors tui` | Launch TUI with connection event logging to error.log |
+
+**Logging flags are off by default.** Enable with `--log-chat` and/or `--log-errors`.
 
 ## TUI Keybindings
 

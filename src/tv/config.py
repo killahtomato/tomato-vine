@@ -55,6 +55,8 @@ class AppConfig(BaseModel):
     send_throttle_ms: Annotated[int, Field(ge=0, le=5000)] = 200
     theme: str = "dark"
     encoding: str = "utf-8"
+    log_chat: bool = False
+    log_errors: bool = False
 
     @field_validator("log_level")
     @classmethod
