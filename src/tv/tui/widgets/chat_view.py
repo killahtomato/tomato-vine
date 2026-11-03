@@ -93,9 +93,12 @@ class MessagePane(VerticalScroll):
         self._nick_color: str | None = None
         self._my_nick: str | None = None
 
-    def _trim_old_widgets(self, max_widgets: int = 100) -> None:
-        while len(self.children) > max_widgets:
-            self.children[0].remove()
+    async def _trim_old_widgets(self, max_widgets: int = 50) -> None:
+        to_remove = len(self.children) - max_widgets
+        if to_remove <= 0:
+            return
+        for widget in list(self.children)[:to_remove]:
+            await widget.remove()
 
     def on_mount(self) -> None:
         pass
@@ -131,8 +134,9 @@ class MessagePane(VerticalScroll):
         self.mount(row)
         self.scroll_end(animate=False)
         self._msg_count += 1
-        if self._msg_count % 500 == 0:
-            self._trim_old_widgets()
+        if self._msg_count % 50 == 0:
+            import asyncio
+            asyncio.create_task(self._trim_old_widgets())
 
     def add_message(self, nick: str, text: str, outgoing: bool = False) -> None:
         clean = strip_irc_formatting(text)
