@@ -88,8 +88,17 @@ class MessagePane(VerticalScroll):
         super().__init__(id="chat-view")
         self._buffer: list[str] = []
         self._url_buffer: list[str] = []
+        self._pending_mounts: list[MessageRow] = []
+        self._msg_count: int = 0
         self._nick_color: str | None = None
         self._my_nick: str | None = None
+
+    def _trim_old_widgets(self, max_widgets: int = 100) -> None:
+        while len(self.children) > max_widgets:
+            self.children[0].remove()
+
+    def on_mount(self) -> None:
+        pass
 
     def set_nick_highlight(self, nick: str, color: str | None) -> None:
         self._my_nick = nick
@@ -120,8 +129,9 @@ class MessagePane(VerticalScroll):
         self._add_line(plain_text)
         self._track_urls(plain_text)
         self.mount(row)
-        if len(self._buffer) % 5 == 0:
-            self.scroll_end(animate=False)
+        self._msg_count += 1
+        if self._msg_count % 500 == 0:
+            self._trim_old_widgets()
 
     def add_message(self, nick: str, text: str, outgoing: bool = False) -> None:
         clean = strip_irc_formatting(text)

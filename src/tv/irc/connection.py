@@ -198,7 +198,7 @@ class IRCConnection:
 
     async def _handle_line(self, line: str) -> None:
         """Route an IRC line through protocol handlers and user callbacks."""
-        log.info("<< %s", line[:200])
+        log.debug("<< %s", line[:200])
         try:
             msg = parse_line(line)
         except Exception as exc:
@@ -320,11 +320,11 @@ class IRCConnection:
             while not self._closed:
                 if self._send_queue:
                     line = self._send_queue.popleft()
-                    log.info(">> %s", line[:120])
+                    log.debug(">> %s", line[:120])
                     self._writer.write((line + "\r\n").encode(self.encoding))
                     await self._writer.drain()
                 else:
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(0.1)
         except (OSError, asyncio.CancelledError) as exc:
             log.debug("write loop ended: %s", exc)
 
