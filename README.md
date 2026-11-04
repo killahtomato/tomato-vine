@@ -77,9 +77,8 @@ tv tui                          # launch the interactive TUI
 - **Multi-server** — connect to multiple servers simultaneously, TreeView sidebar with server → channel → DM hierarchy
 - **SASL PLAIN authentication**
 - **IRCv3 capabilities**: multi-prefix, account-notify, away-notify, extended-join, message-tags
-- **Auto-reconnect** with exponential backoff
+- **Reconnect support** with exponential backoff in the protocol layer
 - **TreeView sidebar** with server navigation and DM tracking
-- **IRC color code rendering** (mIRC colors → Rich markup)
 - **CTCP auto-replies**: VERSION, PING, TIME, FINGER
 - **WHO/NAMES** — automatic nick list population
 - **Channel modes**: +o, +v, +b, +k, +l tracking
@@ -88,14 +87,14 @@ tv tui                          # launch the interactive TUI
 
 ```
 src/tv/
-├── config.py         # Pydantic config models (servers, SASL, reconnect)
+├── config.py         # Pydantic config models (servers, SASL)
 ├── cli.py            # Argparse entry point
 ├── irc/
 │   ├── parser.py     # IRC message parser (RFC 1459 + IRCv3 tags)
 │   ├── commands.py   # IRC command builders (PRIVMSG, JOIN, SASL, CTCP)
-│   ├── connection.py # Async TCP/TLS + auto-reconnect + SASL + CAP
+│   ├── connection.py # Async TCP/TLS + reconnect + SASL + CAP
 │   ├── capabilities.py # IRCv3 capability negotiation
-│   └── colors.py     # IRC color code → Rich markup rendering
+│   └── colors.py     # IRC color code helpers
 └── tui/
     ├── app.py        # Main Textual app — event handling, commands
     └── widgets/
